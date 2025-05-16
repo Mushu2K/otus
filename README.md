@@ -142,7 +142,6 @@ danila@kds-otus01:/$
 7. Создаем из разделов sdb1 и sdb2 массив raid1, создаем файловую систему, каталог подключения и монтируем созданный raid1. Проверяем:
 
 danila@kds-otus01:~$ sudo mdadm --create /dev/md127 --level=1 --raid-devices=2 /dev/sdb1 /dev/sdb2
-
 mdadm: /dev/sdb1 appears to contain an ext2fs file system
        size=102400K  mtime=Thu Jan  1 03:00:00 1970
 mdadm: Note: this array has metadata at the start and
@@ -168,7 +167,6 @@ Writing superblocks and filesystem accounting information: done
 
 danila@kds-otus01:~$ sudo mount /dev/md1 /mnt/raid1
 danila@kds-otus01:~$ sudo mdadm --detail /dev/md127
-
 /dev/md127:
            Version : 1.2
      Creation Time : Wed May 14 16:08:51 2025
@@ -215,10 +213,10 @@ sr0                        11:0    1    3G  0 rom
 
 8. Сохраним данные о массиве и точках монтирования в конфигурационных файлах. Обновим initramfs:
 
-danila@kds-otus01:~$ sudo sh -c 'mdadm --detail --scan >> /etc/mdadm/mdadm.conf'
-danila@kds-otus01:~$ sudo sh -c 'echo "/dev/disk/by-uuid/c8ccf4b3-bb0e-404a-8401-268be216b75e /mnt/distr ext4 defaults 0 2" >> /etc/fstab'
-danila@kds-otus01:~$ sudo sh -c 'echo "/dev/md127 /mnt/raid1 ext4 defaults 0 2" >> /etc/fstab'
-danila@kds-otus01:/$ sudo update-initramfs -u
+danila@kds-otus01:~$  sudo sh -c 'mdadm --detail --scan >> /etc/mdadm/mdadm.conf'
+danila@kds-otus01:~$  sudo sh -c 'echo "/dev/disk/by-uuid/c8ccf4b3-bb0e-404a-8401-268be216b75e /mnt/distr ext4 defaults 0 2" >> /etc/fstab'
+danila@kds-otus01:~$  sudo sh -c 'echo "/dev/md127 /mnt/raid1 ext4 defaults 0 2" >> /etc/fstab'
+danila@kds-otus01:/$  sudo update-initramfs -u
 update-initramfs: Generating /boot/initrd.img-6.14.4-061404-generic
 
 9. Создаем файл для проверки работоспособности массива. С помощью mdadm удаляем раздел sdb1 и проверяем работоспособность массива:
