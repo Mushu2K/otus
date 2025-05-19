@@ -271,3 +271,192 @@ Consistency Policy : resync
        0       8       17        -      faulty   /dev/sdb1
 danila@kds-otus01:/$ sudo mdadm /dev/md127 --remove /dev/sdb1
 mdadm: hot removed /dev/sdb1 from /dev/md127
+
+**Домашка 3**
+
+1. Пакет lvm2 уде установлен в системе, LVM настроен:
+danila@kds-otus01:~$ lsblk -f
+NAME                      FSTYPE            FSVER            LABEL                           UUID                                   FSAVAIL FSUSE% MOUNTPOINTS
+sda
+├─sda1
+├─sda2                    ext4              1.0                                              a40566c6-01cb-4d01-9595-0c73e227b1a7      1.6G    10% /boot
+└─sda3                    LVM2_member       LVM2 001                                         FWDBDo-LlJe-Quue-5bAJ-Lfw7-0I9W-GWOWPq
+  └─ubuntu--vg-ubuntu--lv ext4              1.0                                              5295f539-3d2d-44cd-8fab-c05beb98f11f     11.1G    35% /
+sdb
+├─sdb1                    linux_raid_member 1.2              kds-otus01:127                  9570d2eb-ffa5-aefe-4262-740ddc31050a
+├─sdb2                    linux_raid_member 1.2              kds-otus01:127                  9570d2eb-ffa5-aefe-4262-740ddc31050a
+│ └─md127                 ext4              1.0                                              cf4255e3-fa1e-4255-b469-f974439623f0     81.8M     0% /mnt/raid1
+├─sdb3                    linux_raid_member 1.2              kds-otus01:127                  9570d2eb-ffa5-aefe-4262-740ddc31050a
+│ └─md127                 ext4              1.0                                              cf4255e3-fa1e-4255-b469-f974439623f0     81.8M     0% /mnt/raid1
+├─sdb4                    ext4              1.0                                              183d03dc-78ed-48d7-8bc2-06ed61991865
+└─sdb5                    ext4              1.0                                              c8ccf4b3-bb0e-404a-8401-268be216b75e     82.7M     0% /mnt/distr
+sdc
+sdd
+sr0                       iso9660           Joliet Extension Ubuntu-Server 24.04.2 LTS amd64 2025-02-16-22-49-22-00
+
+
+2. Cоздаем physical volume, volume group test-vg и logical volume otus:
+danila@kds-otus01:~$  pvcreate /dev/sdc
+ password for danila:
+  Physical volume "/dev/sdc" successfully created.
+danila@kds-otus01:~$  vgcreate test-vg /dev/sdc
+  Volume group "test-vg" successfully created
+danila@kds-otus01:~$  lvcreate test-vg -n otus -L 100M
+  Logical volume "otus" created.
+
+
+3. Создаем на logical volume файловую систему EXT4, создаем точку монтирования /mnt/exercise3 и подключаем раздел с последующим занесением в fstab:
+danila@kds-otus01:~$  mkfs.ext4 /dev/mapper/test--vg-otus
+mke2fs 1.47.0 (5-Feb-2023)
+Discarding device blocks: done
+Creating filesystem with 25600 4k blocks and 25600 inodes
+
+Allocating group tables: done
+Writing inode tables: done
+Creating journal (1024 blocks): done
+Writing superblocks and filesystem accounting information: done
+danila@kds-otus01:~$  mkdir /mnt/exercise3
+danila@kds-otus01:~$  mount /dev/mapper/test--vg-otus /mnt/exercise3
+danila@kds-otus01:~$  sh -c 'echo "/dev/disk/by-uuid/ab8535a2-d9e3-4d37-a99b-fd99acdc971b /mnt/exercise3 ext4 defaults 0 2" >> /etc/fstab'
+
+4. Создаем physical volume на диске sdd и расширяем volume group test-vg на него:
+danila@kds-otus01:~$  pvcreate /dev/sdd
+ password for danila:
+  Physical volume "/dev/sdd" successfully created.
+danila@kds-otus01:~$  vgextend test-vg /dev/sdd
+  Volume group "test-vg" successfully extended
+
+5. Добавляем logical volume otus дополнительные 200 МБ дискового пространства и проверяем:
+danila@kds-otus01:~$  lvextend /dev/mapper/test--vg-otus -L +200M
+  Size of logical volume test-vg/otus changed from 100.00 MiB (25 extents) to 300.00 MiB (75 extents).
+  Logical volume test-vg/otus successfully resized.
+danila@kds-otus01:~$  resize2fs /dev/mapper/test--vg-otus
+resize2fs 1.47.0 (5-Feb-2023)
+Filesystem at /dev/mapper/test--vg-otus is mounted on /mnt/exercise3; on-line resizing required
+old_desc_blocks = 1, new_desc_blocks = 1
+The filesystem on /dev/mapper/test--vg-otus is now 76800 (4k) blocks long.
+danila@kds-otus01:~$ df -h
+Filesystem                         Size  Used Avail Use% Mounted on
+tmpfs                              392M  808K  391M   1% /run
+/dev/mapper/ubuntu--vg-ubuntu--lv   19G  6.5G   12G  37% /
+tmpfs                              2.0G     0  2.0G   0% /dev/shm
+tmpfs                              5.0M     0  5.0M   0% /run/lock
+/dev/md127                          89M   24K   82M   1% /mnt/raid1
+/dev/sda2                          2.0G  188M  1.7G  11% /boot
+/dev/sdb5                           90M   24K   83M   1% /mnt/distr
+tmpfs                              392M   16K  392M   1% /run/user/1000
+/dev/mapper/test--vg-otus          278M   24K  265M   1% /mnt/exercise3
+
+6. Проверяем состояние pv, vg и lv:
+danila@kds-otus01:~$  pvdisplay
+  --- Physical volume ---
+  PV Name               /dev/sdc
+  VG Name               test-vg
+  PV Size               1.00 GiB / not usable 4.00 MiB
+  Allocatable           yes
+  PE Size               4.00 MiB
+  Total PE              255
+  Free PE               180
+  Allocated PE          75
+  PV UUID               2TPxXW-ue5U-BjPQ-jwMW-F8UP-RfGJ-6a5A0H
+
+  --- Physical volume ---
+  PV Name               /dev/sdd
+  VG Name               test-vg
+  PV Size               1.00 GiB / not usable 4.00 MiB
+  Allocatable           yes
+  PE Size               4.00 MiB
+  Total PE              255
+  Free PE               255
+  Allocated PE          0
+  PV UUID               dxairZ-MDVo-wmuh-ytpw-CpSt-tB7R-GNPVrf
+
+  --- Physical volume ---
+  PV Name               /dev/sda3
+  VG Name               ubuntu-vg
+  PV Size               <38.00 GiB / not usable 0
+  Allocatable           yes
+  PE Size               4.00 MiB
+  Total PE              9727
+  Free PE               4864
+  Allocated PE          4863
+  PV UUID               FWDBDo-LlJe-Quue-5bAJ-Lfw7-0I9W-GWOWPq
+
+danila@kds-otus01:~$  vgdisplay
+  --- Volume group ---
+  VG Name               test-vg
+  System ID
+  Format                lvm2
+  Metadata Areas        2
+  Metadata Sequence No  4
+  VG Access             read/write
+  VG Status             resizable
+  MAX LV                0
+  Cur LV                1
+  Open LV               1
+  Max PV                0
+  Cur PV                2
+  Act PV                2
+  VG Size               1.99 GiB
+  PE Size               4.00 MiB
+  Total PE              510
+  Alloc PE / Size       75 / 300.00 MiB
+  Free  PE / Size       435 / <1.70 GiB
+  VG UUID               x9Wgds-tpwL-3a2T-FRYk-2TIm-MRWk-ouolHN
+
+  --- Volume group ---
+  VG Name               ubuntu-vg
+  System ID
+  Format                lvm2
+  Metadata Areas        1
+  Metadata Sequence No  2
+  VG Access             read/write
+  VG Status             resizable
+  MAX LV                0
+  Cur LV                1
+  Open LV               1
+  Max PV                0
+  Cur PV                1
+  Act PV                1
+  VG Size               <38.00 GiB
+  PE Size               4.00 MiB
+  Total PE              9727
+  Alloc PE / Size       4863 / <19.00 GiB
+  Free  PE / Size       4864 / 19.00 GiB
+  VG UUID               EZ48E9-uDW1-bFi5-NRSS-Bi3G-ohCX-EDMaU2
+
+danila@kds-otus01:~$  lvdisplay
+  --- Logical volume ---
+  LV Path                /dev/test-vg/otus
+  LV Name                otus
+  VG Name                test-vg
+  LV UUID                cPucL9-LVe0-ez0B-tsC2-0GNJ-hyYe-e8cq6e
+  LV Write Access        read/write
+  LV Creation host, time kds-otus01, 2025-05-19 18:04:57 +0300
+  LV Status              available
+  # open                 1
+  LV Size                300.00 MiB
+  Current LE             75
+  Segments               1
+  Allocation             inherit
+  Read ahead sectors     auto
+  - currently set to     256
+  Block device           252:1
+
+  --- Logical volume ---
+  LV Path                /dev/ubuntu-vg/ubuntu-lv
+  LV Name                ubuntu-lv
+  VG Name                ubuntu-vg
+  LV UUID                Lkkx1d-E2wF-FlRS-cYwm-AIvU-xFE9-5QZMMk
+  LV Write Access        read/write
+  LV Creation host, time ubuntu-server, 2025-05-07 09:26:34 +0300
+  LV Status              available
+  # open                 1
+  LV Size                <19.00 GiB
+  Current LE             4863
+  Segments               1
+  Allocation             inherit
+  Read ahead sectors     auto
+  - currently set to     256
+  Block device           252:0
+
