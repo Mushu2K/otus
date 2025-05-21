@@ -1,41 +1,56 @@
-# otus
 **Домашка 1:**
 
 0. проверяем текущую версию ядра:
+```
 danila@kds-otus01:~$ uname -r 
 6.8.0-59-generic
-
+```
 1. Добавляем репозиторий:
+```
 danila@kds-otus01:~$ sudo add-apt-repository ppa:cappelikan/ppa 
+```
 
 2. Обновляем список доступных пактов: 
+```
 danila@kds-otus01:~$ sudo apt update
+```
 
 3. Устанавливаем пакет mainline kernels:
+```
 danila@kds-otus01:~$ sudo apt install mainline 
+```
 
 4. Проверяем доступную версию ядра: 
+```
 danila@kds-otus01:~$ mainline check 
 mainline 1.4.13
 Updating Kernels...
 Latest update: 6.14.4 
 Latest point update: 6.8.12 
 mainline: done 
+```
 
 5. Обновляем ядро до последней доступной версии: 
+```
 danila@kds-otus01:~$ sudo mainline install-latest 
+```
 
 6. Перезагружаем виртуальную машину: 
+```
 danila@kds-otus01:~$ sudo reboot 
+```
 
 7. Проверяем текущую версию ядра: 
+```
 danila@kds-otus01:~$ uname -r 
 6.14.4-061404-generic
+```
+
 
 **Домашка 2:**
 
 1. С правами суперпользователя запускаем утилиту gdisk и создаем таблицу разделов GUID:
-
+```
 danila@kds-otus01:~$ gdisk /dev/sdb 
 GPT fdisk (gdisk) version 1.0.10
 
@@ -48,10 +63,10 @@ Partition table scan:
 Command (? for help): o
 This option deletes all partitions and creates a new protective MBR.
 Proceed? (Y/N): y
-
+```
 
 2. Создаем 5 разделов по 100 МБ каждый, после чего проверяем результат:
-
+```
 Command (? for help): n
 Partition number (1-128, default 1):
 First sector (34-2097118, default = 2048) or {+-}size{KMGTP}:
@@ -87,10 +102,10 @@ Number  Start (sector)    End (sector)  Size       Code  Name
    3          411648          616447   100.0 MiB   8300  Linux filesystem
    4          616448          821247   100.0 MiB   8300  Linux filesystem
    5          821248         1026047   100.0 MiB   8300  Linux filesystem
-
+```
 
 3. Выходим из утилиты gdisk с сохранением:
-
+```
 Command (? for help): w
 
 Final checks complete. About to write GPT data. THIS WILL OVERWRITE EXISTING
@@ -100,10 +115,10 @@ Do you want to proceed? (Y/N): y
 OK; writing new GUID partition table (GPT) to /dev/sdb.
 The operation has commdadm pleted successfully.
 danila@kds-otus01:~$
-
+```
 
 4. Выводим список доступных блочных устройств:
-
+```
 danila@kds-otus01:~$ lsblk
 NAME                      MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
 sda                         8:0    0   40G  0 disk
@@ -118,10 +133,10 @@ sdb                         8:16   0    1G  0 disk
 ├─sdb4                      8:20   0  100M  0 part
 └─sdb5                      8:21   0  100M  0 part
 sr0                        11:0    1    3G  0 rom
-
+```
 
 5. Создаем на разделе sdb5 файловую систему:
-
+```
 danila@kds-otus01:/$ sudo mkfs.ext4 /dev/sdb5
 mke2fs 1.47.0 (5-Feb-2023)
 Discarding device blocks: done
@@ -131,17 +146,18 @@ Allocating group tables: done
 Writing inode tables: done
 Creating journal (1024 blocks): done
 Writing superblocks and filesystem accounting information: done
-
+```
 
 6. Создаем каталог /mnt/distr и монтируем к нему раздел /dev/sdb5:
-
+```
 danila@kds-otus01:/$ sudo mkdir /mnt/distr && sudo mount /dev/sdb5 /mnt/distr
 danila@kds-otus01:/$
-
+```
 
 7. Создаем из разделов sdb1 и sdb2 массив raid1, создаем файловую систему, каталог подключения и монтируем созданный raid1. Проверяем:
-
+```
 danila@kds-otus01:~$ sudo mdadm --create /dev/md127 --level=1 --raid-devices=2 /dev/sdb1 /dev/sdb2
+[sudo] password for danila:
 mdadm: /dev/sdb1 appears to contain an ext2fs file system
        size=102400K  mtime=Thu Jan  1 03:00:00 1970
 mdadm: Note: this array has metadata at the start and
@@ -167,6 +183,7 @@ Writing superblocks and filesystem accounting information: done
 
 danila@kds-otus01:~$ sudo mount /dev/md1 /mnt/raid1
 danila@kds-otus01:~$ sudo mdadm --detail /dev/md127
+[sudo] password for danila:
 /dev/md127:
            Version : 1.2
      Creation Time : Wed May 14 16:08:51 2025
@@ -209,18 +226,18 @@ sdb                         8:16   0    1G  0 disk
 ├─sdb4                      8:20   0  100M  0 part
 └─sdb5                      8:21   0  100M  0 part  /mnt/distr
 sr0                        11:0    1    3G  0 rom
-
+```
 
 8. Сохраним данные о массиве и точках монтирования в конфигурационных файлах. Обновим initramfs:
-
-danila@kds-otus01:~$  sudo sh -c 'mdadm --detail --scan >> /etc/mdadm/mdadm.conf'
-danila@kds-otus01:~$  sudo sh -c 'echo "/dev/disk/by-uuid/c8ccf4b3-bb0e-404a-8401-268be216b75e /mnt/distr ext4 defaults 0 2" >> /etc/fstab'
-danila@kds-otus01:~$  sudo sh -c 'echo "/dev/md127 /mnt/raid1 ext4 defaults 0 2" >> /etc/fstab'
-danila@kds-otus01:/$  sudo update-initramfs -u
+```
+danila@kds-otus01:~$ sudo sh -c 'mdadm --detail --scan >> /etc/mdadm/mdadm.conf'
+danila@kds-otus01:~$ sudo sh -c 'echo "/dev/disk/by-uuid/c8ccf4b3-bb0e-404a-8401-268be216b75e /mnt/distr ext4 defaults 0 2" >> /etc/fstab'
+danila@kds-otus01:~$ sudo sh -c 'echo "/dev/md127 /mnt/raid1 ext4 defaults 0 2" >> /etc/fstab'
+danila@kds-otus01:/$ sudo update-initramfs -u
 update-initramfs: Generating /boot/initrd.img-6.14.4-061404-generic
-
+```
 9. Создаем файл для проверки работоспособности массива. С помощью mdadm удаляем раздел sdb1 и проверяем работоспособность массива:
-
+```
 danila@kds-otus01:/$ sudo touch /mnt/raid1/test.txt
 danila@kds-otus01:/$ sudo mdadm /dev/md127 --fail /dev/sdb1
 mdadm: set /dev/sdb1 faulty in /dev/md127
@@ -228,10 +245,10 @@ danila@kds-otus01:/$ cat /proc/mdstat
 Personalities : [raid1] [linear] [raid0] [raid6] [raid5] [raid4] [raid10]
 md127 : active raid1 sdb2[1] sdb1[0](F)
       101376 blocks super 1.2 [2/1] [_U]
-
+```
 
 10. Добавим рабочий раздел в массив и проверим состояние. После чего удалим сбойный раздел:
-
+```
 danila@kds-otus01:/$ sudo mdadm /dev/md127 --add /dev/sdb3
 mdadm: added /dev/sdb3
 danila@kds-otus01:/$ cat /proc/mdstat
@@ -271,10 +288,13 @@ Consistency Policy : resync
        0       8       17        -      faulty   /dev/sdb1
 danila@kds-otus01:/$ sudo mdadm /dev/md127 --remove /dev/sdb1
 mdadm: hot removed /dev/sdb1 from /dev/md127
+```
+
 
 **Домашка 3**
 
 1. Пакет lvm2 уде установлен в системе, LVM настроен:
+```
 danila@kds-otus01:~$ lsblk -f
 NAME                      FSTYPE            FSVER            LABEL                           UUID                                   FSAVAIL FSUSE% MOUNTPOINTS
 sda
@@ -294,19 +314,23 @@ sdc
 sdd
 sr0                       iso9660           Joliet Extension Ubuntu-Server 24.04.2 LTS amd64 2025-02-16-22-49-22-00
 
+```
 
 2. Cоздаем physical volume, volume group test-vg и logical volume otus:
-danila@kds-otus01:~$  pvcreate /dev/sdc
- password for danila:
+```
+danila@kds-otus01:~$ sudo pvcreate /dev/sdc
+[sudo] password for danila:
   Physical volume "/dev/sdc" successfully created.
-danila@kds-otus01:~$  vgcreate test-vg /dev/sdc
+danila@kds-otus01:~$ sudo vgcreate test-vg /dev/sdc
   Volume group "test-vg" successfully created
-danila@kds-otus01:~$  lvcreate test-vg -n otus -L 100M
+danila@kds-otus01:~$ sudo lvcreate test-vg -n otus -L 100M
   Logical volume "otus" created.
 
+```
 
 3. Создаем на logical volume файловую систему EXT4, создаем точку монтирования /mnt/exercise3 и подключаем раздел с последующим занесением в fstab:
-danila@kds-otus01:~$  mkfs.ext4 /dev/mapper/test--vg-otus
+```
+danila@kds-otus01:~$ sudo mkfs.ext4 /dev/mapper/test--vg-otus
 mke2fs 1.47.0 (5-Feb-2023)
 Discarding device blocks: done
 Creating filesystem with 25600 4k blocks and 25600 inodes
@@ -315,22 +339,26 @@ Allocating group tables: done
 Writing inode tables: done
 Creating journal (1024 blocks): done
 Writing superblocks and filesystem accounting information: done
-danila@kds-otus01:~$  mkdir /mnt/exercise3
-danila@kds-otus01:~$  mount /dev/mapper/test--vg-otus /mnt/exercise3
-danila@kds-otus01:~$  sh -c 'echo "/dev/disk/by-uuid/ab8535a2-d9e3-4d37-a99b-fd99acdc971b /mnt/exercise3 ext4 defaults 0 2" >> /etc/fstab'
+danila@kds-otus01:~$ sudo mkdir /mnt/exercise3
+danila@kds-otus01:~$ sudo mount /dev/mapper/test--vg-otus /mnt/exercise3
+danila@kds-otus01:~$ sudo sh -c 'echo "/dev/disk/by-uuid/ab8535a2-d9e3-4d37-a99b-fd99acdc971b /mnt/exercise3 ext4 defaults 0 2" >> /etc/fstab'
+```
 
 4. Создаем physical volume на диске sdd и расширяем volume group test-vg на него:
-danila@kds-otus01:~$  pvcreate /dev/sdd
- password for danila:
+```
+danila@kds-otus01:~$ sudo pvcreate /dev/sdd
+[sudo] password for danila:
   Physical volume "/dev/sdd" successfully created.
-danila@kds-otus01:~$  vgextend test-vg /dev/sdd
+danila@kds-otus01:~$ sudo vgextend test-vg /dev/sdd
   Volume group "test-vg" successfully extended
+```
 
 5. Добавляем logical volume otus дополнительные 200 МБ дискового пространства и проверяем:
-danila@kds-otus01:~$  lvextend /dev/mapper/test--vg-otus -L +200M
+```
+danila@kds-otus01:~$ sudo lvextend /dev/mapper/test--vg-otus -L +200M
   Size of logical volume test-vg/otus changed from 100.00 MiB (25 extents) to 300.00 MiB (75 extents).
   Logical volume test-vg/otus successfully resized.
-danila@kds-otus01:~$  resize2fs /dev/mapper/test--vg-otus
+danila@kds-otus01:~$ sudo resize2fs /dev/mapper/test--vg-otus
 resize2fs 1.47.0 (5-Feb-2023)
 Filesystem at /dev/mapper/test--vg-otus is mounted on /mnt/exercise3; on-line resizing required
 old_desc_blocks = 1, new_desc_blocks = 1
@@ -346,9 +374,11 @@ tmpfs                              5.0M     0  5.0M   0% /run/lock
 /dev/sdb5                           90M   24K   83M   1% /mnt/distr
 tmpfs                              392M   16K  392M   1% /run/user/1000
 /dev/mapper/test--vg-otus          278M   24K  265M   1% /mnt/exercise3
+```
 
 6. Проверяем состояние pv, vg и lv:
-danila@kds-otus01:~$  pvdisplay
+```
+danila@kds-otus01:~$ sudo pvdisplay
   --- Physical volume ---
   PV Name               /dev/sdc
   VG Name               test-vg
@@ -382,7 +412,7 @@ danila@kds-otus01:~$  pvdisplay
   Allocated PE          4863
   PV UUID               FWDBDo-LlJe-Quue-5bAJ-Lfw7-0I9W-GWOWPq
 
-danila@kds-otus01:~$  vgdisplay
+danila@kds-otus01:~$ sudo vgdisplay
   --- Volume group ---
   VG Name               test-vg
   System ID
@@ -425,7 +455,7 @@ danila@kds-otus01:~$  vgdisplay
   Free  PE / Size       4864 / 19.00 GiB
   VG UUID               EZ48E9-uDW1-bFi5-NRSS-Bi3G-ohCX-EDMaU2
 
-danila@kds-otus01:~$  lvdisplay
+danila@kds-otus01:~$ sudo lvdisplay
   --- Logical volume ---
   LV Path                /dev/test-vg/otus
   LV Name                otus
@@ -459,4 +489,8 @@ danila@kds-otus01:~$  lvdisplay
   Read ahead sectors     auto
   - currently set to     256
   Block device           252:0
+
+```
+
+**Домашка 4**
 
